@@ -236,7 +236,7 @@ int main(unused int argc, unused char *argv[]) {
   
   // struct sigaction sa = {.sa_handler = sig_chld};
   // sigaction(SIGCHLD, &sa, NULL);
-  //ignore_signal();
+  ignore_signal();
   // pipe(p2c);
 
   static char line[4096];
@@ -260,7 +260,7 @@ int main(unused int argc, unused char *argv[]) {
     while(i<tokens_get_length(tokens)){
       char* token = tokens_get_token(tokens,i++);
       if (strcmp(token,">") == 0){
-        fd = open(tokens_get_token(tokens,i++),O_WRONLY | O_CREAT, 0600);
+        fd = open(tokens_get_token(tokens,i++),O_WRONLY | O_CREAT, 0666);
       }
       else if (strcmp(token,"<") == 0) {
         char* readfile = tokens_get_token(tokens,i++);
@@ -291,50 +291,79 @@ int main(unused int argc, unused char *argv[]) {
     /* Find which built-in function to run. */
     int fundex = lookup(tokens_get_token(tokens, 0));
 
+    dup2(saved_stdin,STDIN_FILENO);
+    dup2(saved_stdout,STDOUT_FILENO);
+    
+
     if(valid){
       if (fundex >= 0) {
         cmd_table[fundex].fun(tokens);
       } else {
         
         pid_t cpid;
+        int tube[2];
+        pipe(tube);
         /* Run commands as programs. */
+        
         if ((cpid=fork())==0){
-          //accept_signal();
-                  
+
+          accept_signal();
+          //signal(SIGTTOU , SIG_IGN);
           setpgrp();
 
           if(fd != -1){
             dup2(fd,STDOUT_FILENO);
             close(fd);
+            printf("%s %d\n",a[0],j);
+            fflush(stdout);
           }
           char* cmd = get_cmd(tokens_get_token(tokens, 0));
           if(j==1 && strcmp(a[0],"cat")==0){
-            dup2(saved_stdin,STDIN_FILENO);
+            printf("cat from stdin\n");
+            fflush(stdout);
+            close(tube[1]);
+            dup2(tube[0], STDIN_FILENO);
+            close(tube[0]);
             // char *arg = (char *) malloc(sizeof(char)*1024);
             // scanf("%s", arg);
-            execl(cmd, cmd, NULL, NULL);
-            
+            execl(cmd, "cat", NULL, NULL);
           } else{
+            close(tube[0]);
+            close(tube[1]);
             execv(cmd, a);
           }
 
           free(cmd);
           
           dup2(saved_stdout,STDOUT_FILENO);
-          _exit(0);
+          _exit(2);
         } else {
           close(fd);
+          // dup2(STDIN_FILENO,tube[1]);
           
           
           // set the proccess group of child 
           setpgid(cpid, cpid);
           // set the proccess group in the foreground
           signal(SIGTTOU , SIG_IGN);
-          tcsetpgrp(STDIN_FILENO, cpid);
-          
+          tcsetpgrp(STDIN_FILENO, getpgid(cpid));
+          close(tube[0]);
+          if(j==1 && strcmp(a[0],"cat")==0){
+            dup2(saved_stdin,STDIN_FILENO);
+            while (fgets(line, sizeof(line), stdin)){
+              size_t len = strlen(line);
+              if (write(tube[1], line, len) != len) {
+                fprintf(stderr, "Failed to write to pipe\n");
+              }
+            }
+          }
+          close(tube[1]);
           int status;
-          wait(&status);
-          tcsetpgrp(STDIN_FILENO, getpid());
+          //wait(&status);
+          waitpid(cpid, &status,  WUNTRACED);
+          
+          tcsetpgrp(STDIN_FILENO, getpgid(getpid()));
+          
           //init_shell();
         }
       }
@@ -350,6 +379,7 @@ int main(unused int argc, unused char *argv[]) {
     tokens_destroy(tokens);
     free(a);
     dup2(saved_stdin,STDIN_FILENO);
+    dup2(saved_stdout,STDOUT_FILENO);
   }
   close(saved_stdout);
   return 0;
