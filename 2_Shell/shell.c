@@ -314,8 +314,6 @@ int main(unused int argc, unused char *argv[]) {
           if(fd != -1){
             dup2(fd,STDOUT_FILENO);
             close(fd);
-            printf("%s %d\n",a[0],j);
-            fflush(stdout);
           }
           char* cmd = get_cmd(tokens_get_token(tokens, 0));
           if(j==1 && strcmp(a[0],"cat")==0){
