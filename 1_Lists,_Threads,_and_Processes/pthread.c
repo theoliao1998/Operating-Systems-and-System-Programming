@@ -50,6 +50,6 @@ int main(int argc, char *argv[]) {
   }
 
   /* Last thing that main() should do */
-  pthread_exit(NULL);
+  pthread_exit(NULL); // exit main thread while other threads still working
 }
 

@@ -29,7 +29,8 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <unistd.h>
-
+#include <fcntl.h>
+#include <sys/wait.h>
 #include "word_count.h"
 #include "word_helpers.h"
 
@@ -62,7 +63,40 @@ int main(int argc, char *argv[]) {
     /* Process stdin in a single process. */
     count_words(&word_counts, stdin);
   } else {
-    /* TODO */
+    pid_t cpid[argc-1];
+    int fd[2 * (argc-1)];
+    for(int t = 1; t < argc; t++) {
+      pipe(&fd[2*(t-1)]);
+      if((cpid[t-1]=fork())==0){
+        close(fd[2*(t-1)]);
+        FILE * f = fopen(argv[t],"r");
+        FILE * w = fdopen(fd[2*(t-1)+1],"w");
+        if(f!=NULL){
+          count_words(&word_counts,f);
+          fclose(f);
+        } else{
+          perror("fopen argv");
+          return 1;
+        }
+        if(w!=NULL){
+          fprint_words(&word_counts, w);
+          fclose(w);
+        } else{
+          close(fd[2*(t-1)]+1);
+          perror("fopen pipe");
+          return 1;
+        }
+        _exit(2);
+      } else {
+        close(fd[2*(t-1)]+1);
+      }
+    } 
+    for (int t = 1; t < argc; t++) {
+      waitpid(cpid[t-1], NULL, WNOHANG);
+      FILE * r = fdopen(fd[2*(t-1)],"r");
+      merge_counts(&word_counts,r);
+      fclose(r);
+    }
   }
 
   /* Output final result of all process' work. */
