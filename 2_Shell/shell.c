@@ -149,12 +149,6 @@ void init_shell() {
   }
 }
 
-
-void sig_chld(int chld){
-  signal(SIGINT       , SIG_DFL);
-  kill(-getpgrp(), SIGTTIN);
-}
-
 void ignore_signal(){
   signal(SIGHUP       , SIG_IGN);   
   signal(SIGINT       , SIG_IGN);   
@@ -233,11 +227,8 @@ void accept_signal(){
 
 int main(unused int argc, unused char *argv[]) {
   init_shell();
-  
-  // struct sigaction sa = {.sa_handler = sig_chld};
-  // sigaction(SIGCHLD, &sa, NULL);
+
   ignore_signal();
-  // pipe(p2c);
 
   static char line[4096];
   int line_num = 0;
@@ -308,7 +299,6 @@ int main(unused int argc, unused char *argv[]) {
         if ((cpid=fork())==0){
 
           accept_signal();
-          //signal(SIGTTOU , SIG_IGN);
           setpgrp();
 
           if(fd != -1){
@@ -337,9 +327,6 @@ int main(unused int argc, unused char *argv[]) {
           _exit(2);
         } else {
           close(fd);
-          // dup2(STDIN_FILENO,tube[1]);
-          
-          
           // set the proccess group of child 
           setpgid(cpid, cpid);
           // set the proccess group in the foreground
@@ -361,8 +348,6 @@ int main(unused int argc, unused char *argv[]) {
           waitpid(cpid, &status,  WUNTRACED);
           
           tcsetpgrp(STDIN_FILENO, getpgid(getpid()));
-          
-          //init_shell();
         }
       }
     }
