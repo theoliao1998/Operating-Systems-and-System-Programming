@@ -14,20 +14,25 @@ struct client_info {
     int client_socket_number;
 };
 
-void handle_client(void * arg) {
-  /* BEGIN TASK 3 SOLUTION */
-
-  /* END TASK 3 SOLUTION */
+void* handle_client(void * arg) {
+  struct client_info* c = (struct client_info *)arg;
+  c->request_handler(c->client_socket_number);
+  close(c->client_socket_number);
+  free(c);
+  pthread_exit(NULL);
 }
 
 dispatcher_t *new_dispatcher(int concurrency, void (*request_handler)(int)) {
-  /* BEGIN TASK 3 SOLUTION */
-
-  /* END TASK 3 SOLUTION */
+  dispatcher_t *dispatcher =  malloc(sizeof(dispatcher_t));
+  dispatcher->request_handler = request_handler;
+  return dispatcher;
 }
 
 void dispatch(dispatcher_t* dispatcher, int client_socket_number) {
-  /* BEGIN TASK 3 SOLUTION */
-
-  /* END TASK 3 SOLUTION */
+  struct client_info* c = malloc(sizeof(struct client_info));
+  pthread_t t;
+  c->request_handler = dispatcher->request_handler;
+  c->client_socket_number = client_socket_number;
+  pthread_create(&t, NULL, handle_client, (void *)c);
+  pthread_detach(t); // detach the thread on the stack
 }

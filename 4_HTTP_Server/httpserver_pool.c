@@ -16,20 +16,26 @@ void *handle_clients(void *arg) {
   /* (Valgrind) Detach so thread frees its memory on completion, since we won't
    * be joining on it. */
   pthread_detach(pthread_self());
-
-  /* BEGIN TASK 4 SOLUTION */
-
-  /* END TASK 4 SOLUTION */
+  dispatcher_t *dispatcher = (dispatcher_t *)arg;
+  while(1){
+    int client_socket_number = wq_pop(&(dispatcher->work_queue));
+    dispatcher->request_handler(client_socket_number);
+    close(client_socket_number);
+  }
+  pthread_exit(NULL);
 }
 
 dispatcher_t *new_dispatcher(int concurrency, void (*request_handler)(int)) {
-  /* BEGIN TASK 4 SOLUTION */
-
-  /* END TASK 4 SOLUTION */
+  dispatcher_t *dispatcher =  malloc(sizeof(dispatcher_t));
+  dispatcher->request_handler = request_handler;
+  dispatcher->workers = malloc(sizeof(pthread_t)*concurrency);
+  wq_init(&(dispatcher->work_queue));
+  for(int i=0; i<concurrency; i++){
+    pthread_create(dispatcher->workers+i, NULL, handle_clients, dispatcher);
+  }
+  return dispatcher;
 }
 
 void dispatch(dispatcher_t* dispatcher, int client_socket_number) {
-  /* BEGIN TASK 4 SOLUTION */
-
-  /* END TASK 4 SOLUTION */
+  wq_push(&(dispatcher->work_queue),client_socket_number);
 }
